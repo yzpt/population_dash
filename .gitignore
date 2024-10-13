@@ -3,3 +3,4 @@ key*
 z_*
 .env
 data/
+__pycache__/
