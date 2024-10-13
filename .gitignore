@@ -1,0 +1,5 @@
+venv*
+key*
+z_*
+.env
+data/
