@@ -135,6 +135,7 @@ def create_layout(
                         ]
                     ),
                     
+                    html.Button('Select All', id='select-all-button', n_clicks=0),
                     
                     # Metric display for sum of population
                     html.Div(id="metric-output", style={"margin-top": "20px", "font-size": "20px"}),
@@ -327,6 +328,7 @@ def plot_historic_population(codgeo: str) -> go.Figure:
         Input('geojson-precision-radio', 'value'),
         Input('slider-marker-opacity', 'value'),
         Input('mapbox-style-radio', 'value'),
+        Input('select-all-button', 'n_clicks'),
         
     ],
     [
@@ -343,6 +345,7 @@ def update(
     geojson_precision: str,
     marker_opacity: float,
     mapbox_style: str,
+    n_clicks_select_all_markers: int,
     # States
     current_figure: Dict[str, Any],
 ) -> Tuple[go.Figure, str]:
@@ -384,6 +387,9 @@ def update(
     )  
     # Set the zoom and center back to the figure
     fig_map.update_layout(mapbox_zoom=zoom, mapbox_center=center)
+    if n_clicks_select_all_markers > 0:
+        fig_map.update_traces(selectedpoints=list(range(len(gdf))))  # Select all points
+
 
     total_population = filtered_gdf['pop'].sum()
     metric_text = f"Total Population: {total_population:,}" if selected_departements else "Total Population (All departements):"
@@ -399,6 +405,8 @@ freezed_codgeo = '59350'
     [
         Input('map-graph', 'hoverData'),
         Input('map-graph', 'clickData'),
+        Input('map-graph', 'selectedData'),
+        
     ],
     [
         State('historic-population-graph', 'figure'),
@@ -407,10 +415,15 @@ freezed_codgeo = '59350'
 def update_historic_population_graph(
     hover_data: dict,
     click_data: dict,
+    selected_data: dict,
     current_figure: go.Figure,
 ):
     global is_freezed
     global freezed_codgeo
+    
+    # print(f'hover_data: {hover_data}')
+    # print(f'click_data: {click_data}')
+    # print(f'selected_data: {selected_data}')
     
     if not click_data and not hover_data:
         return plot_historic_population(codgeo='59350')
@@ -419,7 +432,20 @@ def update_historic_population_graph(
         if hover_data and hover_data == click_data:
             is_freezed = True
             freezed_codgeo = click_data['points'][0]['customdata']
-            return plot_historic_population(freezed_codgeo)
+            fig = plot_historic_population(freezed_codgeo)
+            fig.update_layout(
+                shapes=[dict(
+                    type="rect",
+                    x0=0, x1=1, y0=0, y1=1,  # Coordinates of the rectangle (entire figure area)
+                    line=dict(
+                        color="skyblue", 
+                        width=1,
+                        dash="dash",
+                    ), 
+                    xref="paper", yref="paper"
+                )]
+            )
+            return fig
     
     if is_freezed:
         if click_data and click_data == hover_data:
@@ -434,6 +460,11 @@ def update_historic_population_graph(
         return plot_historic_population(hovered_codgeo)
     
     return go.Figure()
+    
+    
+    
+
+    
     
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0', port=8050)
