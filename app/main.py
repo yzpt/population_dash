@@ -20,12 +20,8 @@ def load_data(
     print(f'{datetime.now()}: Loading data from communes_with_population_{precison}_{f}.gpkg')
     gdf = gpd.read_file(f'communes_with_population_{precison}_{f}.gpkg')
     print(f'Data loaded: {len(gdf)} rows')
-    df_historic_population = pd.read_csv('historic_population.csv')
     return gdf
 
-def load_histo():
-    df_historic_population = pd.read_csv('historic_population.csv')
-    return df_historic_population
 
 
 
@@ -49,8 +45,8 @@ def create_layout(
                     dcc.Dropdown(
                         id="departement-dropdown",
                         options=[{"label": departement, "value": departement} for departement in gdf["departement"].unique()],
-                        value=[ '62'], 
-                        # value=['59', '62'], 
+                        # value=[ '62'], 
+                        value=['59', '62'], 
                         placeholder="Départements",
                         clearable=True,
                         multi=True,
@@ -253,8 +249,8 @@ def create_map(
 
 gdf = load_data(precison='1000m')
 filtered_gdf = gdf[gdf['departement'].isin(['32'])]
-   
-df_historic_population = load_histo()
+
+df_historic_population = pd.read_csv('pop_historique_extended.csv', dtype={0: str, 2: str})
 
 app = dash.Dash(__name__)
 app.layout = create_layout(
@@ -263,16 +259,32 @@ app.layout = create_layout(
 )
 
 # ============================== graph ==============================
-def plot_hictoric_population(
-    codgeo: str,
-) -> go.Figure:
+import plotly.graph_objects as go
+import pandas as pd
+
+def plot_historic_population(codgeo: str) -> go.Figure:
     global df_historic_population
-    df = df_historic_population[df_historic_population['code'] == codgeo]
-    nom = df.iloc[0]['nom']
-    df = df.T.reset_index()
+    
+    # Filter and transpose the DataFrame
+    df = df_historic_population[df_historic_population['codgeo'] == codgeo].T.reset_index()[3:]
+    
+    # Extract the name of the region or city
+    nom = df.iloc[0, 1]
+    
+    # Clean and rename columns
+    df = df[1:]
     df.columns = ['year', 'population']
-    df = df[3:]
+    
+    # Convert 'year' to datetime
+    df['year'] = pd.to_datetime(df['year'], format='%Y')
+    
+    # Sort values by year
+    df.sort_values('year', ascending=True, inplace=True)
+    
+    # Create figure
     fig = go.Figure()
+    
+    # Add scatter plot with lines and markers
     fig.add_trace(
         go.Scatter(
             x=df['year'],
@@ -281,21 +293,25 @@ def plot_hictoric_population(
             line_shape='spline',
         )
     )
+    
+    # Update layout with titles and styling
     fig.update_layout(
         title=dict(
-            text=f'Population de {nom} ({codgeo})',
-            x=0.1,
-            y=0.9,
-            xanchor='left',
+            text=f'{nom}',
+            x=.95,
+            y=0.95,
+            xanchor='right',
             yanchor='top',
         ),
         yaxis_title='Population',
+        xaxis=dict(type='date'),
         template='plotly_dark',
-        margin={"r":10,"t":10,"l":10,"b":10},
+        margin={"r":10,"t":30,"l":10,"b":10},
         height=200
     )
 
     return fig
+
 
 
 # ============================== callbacks ==============================
@@ -333,9 +349,9 @@ def update(
     
     # ================ #
     global gdf
-    print('---------------------------------')
-    print(f'ctx.triggered: {ctx.triggered}')
-    print(f'mapbox_style: {mapbox_style}')
+    # print('---------------------------------')
+    # print(f'ctx.triggered: {ctx.triggered}')
+    # print(f'mapbox_style: {mapbox_style}')
     # ================ #
     
     if geojson_precision:
@@ -397,25 +413,25 @@ def update_historic_population_graph(
     global freezed_codgeo
     
     if not click_data and not hover_data:
-        return plot_hictoric_population(codgeo='59350')
+        return plot_historic_population(codgeo='59350')
     
     if not is_freezed:
         if hover_data and hover_data == click_data:
             is_freezed = True
             freezed_codgeo = click_data['points'][0]['customdata']
-            return plot_hictoric_population(freezed_codgeo)
+            return plot_historic_population(freezed_codgeo)
     
     if is_freezed:
         if click_data and click_data == hover_data:
             is_freezed = False
             freezed_codgeo = None
             codgeo = click_data['points'][0]['customdata']
-            return plot_hictoric_population(codgeo)
+            return plot_historic_population(codgeo)
         return current_figure
     
     if hover_data:
         hovered_codgeo = hover_data['points'][0]['customdata']
-        return plot_hictoric_population(hovered_codgeo)
+        return plot_historic_population(hovered_codgeo)
     
     return go.Figure()
     
