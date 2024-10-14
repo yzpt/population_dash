@@ -15,13 +15,19 @@ mapbox_access_token = os.getenv('MAPBOX_ACCESS_TOKEN')
 
 
 def load_data(
-    precison: str = '100m',
+    precison: str = '1000m',
 ) -> gpd.GeoDataFrame:
     f = 'f'
     print(f'{datetime.now()}: Loading data from communes_with_population_{precison}_{f}.gpkg')
     gdf = gpd.read_file(f'communes_with_population_{precison}_{f}.gpkg')
     print(f'Data loaded: {len(gdf)} rows')
+    df_historic_population = pd.read_csv('historic_population.csv')
     return gdf
+
+def load_histo():
+    df_historic_population = pd.read_csv('historic_population.csv')
+    return df_historic_population
+
 
 
 # ============================== layout ==============================
@@ -127,7 +133,7 @@ def create_layout(
                                     {'label': '100m', 'value': '100m'},
                                     {'label': '1000m', 'value': '1000m'},
                                 ],
-                                value='50m',
+                                value='1000m',
                                 labelStyle={'display': 'inline-block'},
                             ),
                         ]
@@ -138,6 +144,21 @@ def create_layout(
                     html.Div(id="metric-output", style={"margin-top": "20px", "font-size": "20px"}),
                     html.Hr(),
                     html.P('ajotuer stadia maps'),
+                    html.P(' '),
+                    dcc.Graph(
+                        id='historic-population-graph',
+                        config=dict(scrollZoom=True),
+                        figure=go.Figure(
+                            layout=dict(
+                                paper_bgcolor="rgba(0,0,0,0)",
+                                plot_bgcolor="rgba(0,0,0,0)",
+                                xaxis=dict(visible=False),
+                                yaxis=dict(visible=False),
+                            )
+                        ),
+                        style={"height": "25%"},
+                    ),
+                    
                 ]
             ),
             # Right column with graphs
@@ -229,9 +250,10 @@ def create_map(
     
     return fig_map
 
-gdf = load_data(precison='50m')
-   
+gdf = load_data(precison='1000m')
 filtered_gdf = gdf[gdf['departement'].isin(['32'])]
+   
+df_historic_population = load_histo()
 
 app = dash.Dash(__name__)
 app.layout = create_layout(
@@ -239,7 +261,41 @@ app.layout = create_layout(
     fig_map=create_map(filtered_gdf)
 )
 
+# ============================== graph ==============================
+def plot_hictoric_population(
+    index: int,
+) -> go.Figure:
+    global df_historic_population
+    df = df_historic_population
+    # nom = df[df['code'] == code]['nom'].values[0]
+    # df = df[df['code'] == code].T.reset_index()
+    df = df.iloc[index].T.reset_index()
+    df.columns = ['year', 'population']
+    df = df[3:]
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=df['year'],
+            y=df['population'],
+            mode='lines+markers',
+            line_shape='spline',
+        )
+    )
+    fig.update_layout(
+        title=dict(
+            # text=f'Population de {nom} ({code})',
+            x=0.1,
+            y=0.9,
+            xanchor='left',
+            yanchor='top',
+        ),
+        yaxis_title='Population',
+        template='plotly_dark',
+        margin={"r":10,"t":10,"l":10,"b":10},
+        height=200
+    )
 
+    return fig
 
 
 # ============================== callbacks ==============================
@@ -318,6 +374,31 @@ def update(
     
     return fig_map, metric_text
 
+
+
+
+@app.callback(
+    Output('historic-population-graph', 'figure'),
+    [
+        Input('map-graph', 'hoverData'),
+    ],
+)
+def update_historic_population_graph(
+    hover_data: Dict[str, Any],
+) -> go.Figure:
+    if hover_data is None:
+        return go.Figure()
+    
+    print(f'hover_data: {hover_data}')
+    
+    code = hover_data['points'][0]['location']
+    index = hover_data['points'][0]['pointIndex']
+    
+    # print the gdf['nom'] associated with the index
+    print(f'gdf nom: {gdf.iloc[index]["nom"]}')
+    
+    fig = plot_hictoric_population(index=index)
+    return fig
 
 
 if __name__ == '__main__':

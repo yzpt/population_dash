@@ -33,4 +33,4 @@ docker push $ARTIFACT_REGISTRY_LOCATION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REG
 
 # Cloud Run --cpu 4 --memory 16Gi
 echo "Deploying $APP_SERVICE_NAME"
-gcloud run deploy $APP_SERVICE_NAME --image $ARTIFACT_REGISTRY_LOCATION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY_REPO_NAME/$CONTAINER_NAME --platform managed --region $REGION --allow-unauthenticated --port $PORT --cpu 4 --memory 16Gi
+gcloud run deploy $APP_SERVICE_NAME --image $ARTIFACT_REGISTRY_LOCATION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REGISTRY_REPO_NAME/$CONTAINER_NAME --platform managed --region $REGION --allow-unauthenticated --port $PORT --cpu 8 --memory 16Gi
