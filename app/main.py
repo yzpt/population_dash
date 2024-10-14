@@ -1,4 +1,4 @@
-from dash import dash, dcc, html, Input, Output, State, dash_table, callback_context
+from dash import dash, dcc, html, Input, Output, State, dash_table, ctx
 import pandas as pd
 from plotly import graph_objects as go
 import plotly.express as px
@@ -9,17 +9,15 @@ import os
 import geopandas as gpd
 
 
-# from layout import create_layout
-# from map import create_map
 
-def load_data() -> gpd.GeoDataFrame:
-    m = 50
-    f = '_f'
-    print(f'{datetime.now()}: Loading data...')
-    gdf = gpd.read_file(f'data/communes_with_population_{m}m{f}.gpkg', layer='communes')
+def load_data(
+    precison: str = '1000m',
+) -> gpd.GeoDataFrame:
+    f = 'f'
+    print(f'{datetime.now()}: Loading data from communes_with_population_{precison}_{f}.gpkg')
+    gdf = gpd.read_file(f'communes_with_population_{precison}_{f}.gpkg')
     print(f'Data loaded: {len(gdf)} rows')
     return gdf
-gdf = load_data()
 
 
 # ============================== layout ==============================
@@ -37,13 +35,13 @@ def create_layout(
             html.Div(
                 className='left-column',
                 children=[
-                    # Dropdown filter for regions
-                    html.Label("Select Region:"),
+                    # Dropdown filter for departements
+                    html.Label("Select departement:"),
                     dcc.Dropdown(
-                        id="region-dropdown",
-                        options=[{"label": region, "value": region} for region in gdf["region"].unique()],
-                        value='32',
-                        placeholder="Select a region",
+                        id="departement-dropdown",
+                        options=[{"label": departement, "value": departement} for departement in gdf["departement"].unique()],
+                        value=['59', '62'], 
+                        placeholder="Département:",
                         clearable=True,
                         multi=True,
                         style=dict(
@@ -53,30 +51,62 @@ def create_layout(
                     ),
                     # Slider for max colorscale value
                     html.Label("Max Colorscale Value:"),
-                    dcc.RangeSlider(
-                        id='colorscale-range-slider',
+                    # slider for max colorscale value
+                    dcc.Slider(
+                        id='colorscale-max-slider',
                         min=0,
                         max=100000,  # Set based on your data range
                         step=1000,
-                        value=[0, 100000],  # Default range
+                        value=100000,  # Default max value
                         marks={i: str(i) for i in range(0, 100001, 10000)},
                         tooltip={"placement": "bottom", "always_visible": True},
                     ),
-                    # dcc.Dropdown(
-                    #     id="colorscale-dropdown",
-                    #     options=[
-                    #         {"label": "Viridis", "value": "Viridis"},
-                    #         {"label": "Cividis", "value": "Cividis"},
-                    #         {"label": "Plasma", "value": "Plasma"},
-                    #         {"label": "Inferno", "value": "Inferno"},
-                    #         {"label": "Magma", "value": "Magma"},
-                    #         {"label": "Greens", "value": "Greens"},
-                    #         {"label": "Blues", "value": "Blues"},
-                    #     ],
-                    #     value="Cividis",  # Default color scale
-                    #     clearable=False,
-                    #     style=dict(width="100%", color="black"),
+                    # dcc.RangeSlider(
+                    #     id='colorscale-range-slider',
+                    #     min=0,
+                    #     max=100000,  # Set based on your data range
+                    #     step=1000,
+                    #     value=[0, 100000],  # Default range
+                    #     marks={i: str(i) for i in range(0, 100001, 10000)},
+                    #     tooltip={"placement": "bottom", "always_visible": True},
                     # ),
+                    dcc.Dropdown(
+                        id="colorscale-palette-dropdown",
+                        options=[
+                            {"label": "Viridis", "value": "Viridis"},
+                            {"label": "Cividis", "value": "Cividis"},
+                            {"label": "Plasma", "value": "Plasma"},
+                            {"label": "Inferno", "value": "Inferno"},
+                            {"label": "Magma", "value": "Magma"},
+                            {"label": "Greens", "value": "Greens"},
+                            {"label": "Blues", "value": "Blues"},
+                        ],
+                        value="Cividis",  # Default color scale
+                        clearable=False,
+                        style=dict(width="100%", color="black"),
+                    ),
+                    # dcc buttons form for shapegile precision
+                    html.Div(
+                        className='geojson-precision',
+                        style={"display": "flex", "flex-direction": "row"},
+                        children=[
+                            html.Label("GeoJSON precision:"),
+                            dcc.RadioItems(
+                                id='geojson-precision-radio',
+                                inline=True,
+                                options=[
+                                    {'label': '5m', 'value': '5m'},
+                                    {'label': '50m', 'value': '50m'},
+                                    {'label': '100m', 'value': '100m'},
+                                    {'label': '1000m', 'value': '1000m'},
+                                ],
+                                value='1000m',
+                                labelStyle={'display': 'inline-block'},
+                            ),
+                        ]
+                    ),
+                    
+                    
                     # Metric display for sum of population
                     html.Div(id="metric-output", style={"margin-top": "20px", "font-size": "20px"}),
                 ]
@@ -118,7 +148,7 @@ def create_map(
     gdf: gpd.GeoDataFrame,
     min_colorscale: int = 0,
     max_colorscale: int = 100000,
-    selected_colorscale: str = "Cividis"  # New parameter for color scale
+    colorscale_palette: str = "Cividis"  # New parameter for color scale
 ) -> go.Figure:
     fig_map = go.Figure()
 
@@ -127,7 +157,7 @@ def create_map(
             geojson=gdf.__geo_interface__,
             locations=gdf.index,
             z=gdf['pop'],
-            colorscale=selected_colorscale,  # Use the selected color scale
+            colorscale=colorscale_palette,  # Use the selected color scale
             zmin=min_colorscale,
             zmax=max_colorscale,
             marker_opacity=0.5,
@@ -167,13 +197,16 @@ def create_map(
     
     return fig_map
 
-    
-    
+gdf = load_data(
+    precison='1000m'
+)
+   
+filtered_gdf = gdf[gdf['departement'].isin(['32'])]
 
 app = dash.Dash(__name__)
 app.layout = create_layout(
     gdf=gdf,
-    fig_map=create_map(gdf)
+    fig_map=create_map(filtered_gdf)
 )
 
 
@@ -181,33 +214,75 @@ app.layout = create_layout(
 
 # ============================== callbacks ==============================
 @app.callback(
-    [Output('map-graph', 'figure'), Output('metric-output', 'children')],
-    [Input('region-dropdown', 'value'),
-     Input('colorscale-range-slider', 'value'),],
-    #  Input('colorscale-dropdown', 'value')
-    [State('map-graph', 'figure')]
+    [
+        Output('map-graph', 'figure'), Output('metric-output', 'children')
+    ],
+    [
+        Input('departement-dropdown', 'value'),
+        # Input('colorscale-range-slider', 'value'),
+        Input('colorscale-max-slider', 'value'),
+        Input('colorscale-palette-dropdown', 'value'),
+        Input('geojson-precision-radio', 'value'),
+        
+    ],
+    [
+        State('map-graph', 'figure')
+    ],
+    # prevent_initial_call=True
 )
-def update(selected_regions, colorscale_range, current_figure):  # Add current_figure parameter
+def update(
+    # Inputs
+    selected_departements: List[str],
+    # colorscale_range: Tuple[int, int],
+    max_colorscale: int,
+    colorscale_palette: str,
+    geojson_precision: str,
+    # States
+    current_figure: Dict[str, Any],
+) -> Tuple[go.Figure, str]:
+    
+    # ================ #
+    global gdf
+    print(f'ctx.triggered: {ctx.triggered}')
+    # ================ #
+    
+    # Case button geojson-precision-radio.value is triggered
+    if ctx.triggered:
+        if ctx.triggered[0]['prop_id'] == 'geojson-precision-radio.value':
+            geojson_precision = ctx.triggered[0]['value']
+            print(f'geojson_precision: {geojson_precision}')
+            gdf = load_data(
+                precison=geojson_precision,
+            )
+            print(f'gdf: {len(gdf)} rows')
+    
+    
     # Extract the current zoom and center from the figure
     zoom = current_figure['layout']['mapbox']['zoom'] if 'mapbox' in current_figure['layout'] else 7
     center = current_figure['layout']['mapbox']['center'] if 'mapbox' in current_figure['layout'] else {"lat": 50.62925, "lon": 3.057256}
 
-    if isinstance(selected_regions, str):
-        selected_regions = [selected_regions]
-    elif selected_regions is None:
-        selected_regions = []
+    if isinstance(selected_departements, str):
+        selected_departements = [selected_departements]
+    elif selected_departements is None:
+        selected_departements = []
     
-    min_colorscale, max_colorscale = colorscale_range  
+    # min_colorscale, max_colorscale = colorscale_range  
+    max_colorscale = max_colorscale
     
-    filtered_gdf = gdf[gdf['region'].isin(selected_regions)]
+    filtered_gdf = gdf[gdf['departement'].isin(selected_departements)]
     
-    # Update the map based on the selected region and colorscale
-    fig_map = create_map(filtered_gdf, min_colorscale, max_colorscale)  
+    # Update the map based on the selected departement and colorscale
+    fig_map = create_map(
+        gdf=filtered_gdf, 
+        # min_colorscale=min_colorscale, 
+        max_colorscale=max_colorscale,
+        colorscale_palette=colorscale_palette
+    )  
     # Set the zoom and center back to the figure
     fig_map.update_layout(mapbox_zoom=zoom, mapbox_center=center)
 
     total_population = filtered_gdf['pop'].sum()
-    metric_text = f"Total Population: {total_population:,}" if selected_regions else "Total Population (All Regions):"
+    metric_text = f"Total Population: {total_population:,}" if selected_departements else "Total Population (All departements):"
     
     return fig_map, metric_text
 

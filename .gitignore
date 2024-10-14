@@ -4,3 +4,5 @@ z_*
 .env
 data/
 __pycache__/
+z/
+communes_*
