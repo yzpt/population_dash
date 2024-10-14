@@ -13,7 +13,6 @@ load_dotenv()
 
 mapbox_access_token = os.getenv('MAPBOX_ACCESS_TOKEN')
 
-
 def load_data(
     precison: str = '1000m',
 ) -> gpd.GeoDataFrame:
@@ -50,7 +49,8 @@ def create_layout(
                     dcc.Dropdown(
                         id="departement-dropdown",
                         options=[{"label": departement, "value": departement} for departement in gdf["departement"].unique()],
-                        value=['59', '62'], 
+                        value=[ '62'], 
+                        # value=['59', '62'], 
                         placeholder="Départements",
                         clearable=True,
                         multi=True,
@@ -216,6 +216,7 @@ def create_map(
             marker_line_width=0,
             showlegend=False,
             text=gdf['nom'],
+            customdata=gdf['codgeo'],
             hoverinfo='text+z',
             showscale=True,
             colorbar=dict(
@@ -263,13 +264,12 @@ app.layout = create_layout(
 
 # ============================== graph ==============================
 def plot_hictoric_population(
-    index: int,
+    codgeo: str,
 ) -> go.Figure:
     global df_historic_population
-    df = df_historic_population
-    # nom = df[df['code'] == code]['nom'].values[0]
-    # df = df[df['code'] == code].T.reset_index()
-    df = df.iloc[index].T.reset_index()
+    df = df_historic_population[df_historic_population['code'] == codgeo]
+    nom = df.iloc[0]['nom']
+    df = df.T.reset_index()
     df.columns = ['year', 'population']
     df = df[3:]
     fig = go.Figure()
@@ -283,7 +283,7 @@ def plot_hictoric_population(
     )
     fig.update_layout(
         title=dict(
-            # text=f'Population de {nom} ({code})',
+            text=f'Population de {nom} ({codgeo})',
             x=0.1,
             y=0.9,
             xanchor='left',
@@ -375,31 +375,49 @@ def update(
     return fig_map, metric_text
 
 
-
+is_freezed = False
+freezed_codgeo = '59350'
 
 @app.callback(
     Output('historic-population-graph', 'figure'),
     [
         Input('map-graph', 'hoverData'),
+        Input('map-graph', 'clickData'),
     ],
+    [
+        State('historic-population-graph', 'figure'),
+    ]
 )
 def update_historic_population_graph(
-    hover_data: Dict[str, Any],
-) -> go.Figure:
-    if hover_data is None:
-        return go.Figure()
+    hover_data: dict,
+    click_data: dict,
+    current_figure: go.Figure,
+):
+    global is_freezed
+    global freezed_codgeo
     
-    print(f'hover_data: {hover_data}')
+    if not click_data and not hover_data:
+        return plot_hictoric_population(codgeo='59350')
     
-    code = hover_data['points'][0]['location']
-    index = hover_data['points'][0]['pointIndex']
+    if not is_freezed:
+        if hover_data and hover_data == click_data:
+            is_freezed = True
+            freezed_codgeo = click_data['points'][0]['customdata']
+            return plot_hictoric_population(freezed_codgeo)
     
-    # print the gdf['nom'] associated with the index
-    print(f'gdf nom: {gdf.iloc[index]["nom"]}')
+    if is_freezed:
+        if click_data and click_data == hover_data:
+            is_freezed = False
+            freezed_codgeo = None
+            codgeo = click_data['points'][0]['customdata']
+            return plot_hictoric_population(codgeo)
+        return current_figure
     
-    fig = plot_hictoric_population(index=index)
-    return fig
-
-
+    if hover_data:
+        hovered_codgeo = hover_data['points'][0]['customdata']
+        return plot_hictoric_population(hovered_codgeo)
+    
+    return go.Figure()
+    
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0', port=8050)
