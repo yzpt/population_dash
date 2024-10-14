@@ -3,6 +3,7 @@ source venv_population/bin/activate
 
 pip install pandas ipykernel geopandas dash plotly nbformat openpyxl
 pip install matplotlib numpy seaborn
+pip install python-dotenv
 
 
 git init

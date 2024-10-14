@@ -8,10 +8,14 @@ from typing import List, Dict, Tuple, Any
 import os
 import geopandas as gpd
 
+from dotenv import load_dotenv
+load_dotenv()
+
+mapbox_access_token = os.getenv('MAPBOX_ACCESS_TOKEN')
 
 
 def load_data(
-    precison: str = '1000m',
+    precison: str = '100m',
 ) -> gpd.GeoDataFrame:
     f = 'f'
     print(f'{datetime.now()}: Loading data from communes_with_population_{precison}_{f}.gpkg')
@@ -36,12 +40,12 @@ def create_layout(
                 className='left-column',
                 children=[
                     # Dropdown filter for departements
-                    html.Label("Select departement:"),
+                    html.Label("Départements:"),
                     dcc.Dropdown(
                         id="departement-dropdown",
                         options=[{"label": departement, "value": departement} for departement in gdf["departement"].unique()],
                         value=['59', '62'], 
-                        placeholder="Département:",
+                        placeholder="Départements",
                         clearable=True,
                         multi=True,
                         style=dict(
@@ -57,19 +61,42 @@ def create_layout(
                         min=0,
                         max=100000,  # Set based on your data range
                         step=1000,
-                        value=100000,  # Default max value
+                        value=30000,  # Default max value
                         marks={i: str(i) for i in range(0, 100001, 10000)},
                         tooltip={"placement": "bottom", "always_visible": True},
                     ),
-                    # dcc.RangeSlider(
-                    #     id='colorscale-range-slider',
-                    #     min=0,
-                    #     max=100000,  # Set based on your data range
-                    #     step=1000,
-                    #     value=[0, 100000],  # Default range
-                    #     marks={i: str(i) for i in range(0, 100001, 10000)},
-                    #     tooltip={"placement": "bottom", "always_visible": True},
-                    # ),
+                    html.Label("Opacity:"),
+                    dcc.Slider(
+                        id='slider-marker-opacity',
+                        min=0,
+                        max=1,
+                        step=0.1,
+                        value=0.5,
+                        marks={i: str(i) for i in [0, 0.5, 1]},
+                        tooltip={"placement": "bottom", "always_visible": True},
+                    ),
+                    # radios for mapbox_style
+                    # "open-street-map", "carto-positron", and "carto-darkmatter" yield maps composed of raster tiles from various public tile servers which do not require signups or access tokens.
+                    # "basic", "streets", "outdoors", "light", "dark", "satellite", or "satellite-streets" yield maps composed of vector tiles from the Mapbox service, and do require a Mapbox Access Token or an on-premise Mapbox installation.
+                    html.Div(
+                        style={"display": "flex", "flex-direction": "row"},
+                        children=[
+                            html.Label("map style:"),
+                            dcc.RadioItems(
+                                id='mapbox-style-radio',
+                                inline=True,
+                                options=[
+                                    {'label': 'Open Street Map', 'value': 'open-street-map'},
+                                    {'label': 'Carto Positron', 'value': 'carto-positron'},
+                                    {'label': 'Carto Darkmatter', 'value': 'carto-darkmatter'},
+                                ],
+                                value='carto-darkmatter',
+                                labelStyle={'display': 'inline-block'},
+                            ),
+                        ]
+                    ),
+                    
+                    
                     dcc.Dropdown(
                         id="colorscale-palette-dropdown",
                         options=[
@@ -81,7 +108,7 @@ def create_layout(
                             {"label": "Greens", "value": "Greens"},
                             {"label": "Blues", "value": "Blues"},
                         ],
-                        value="Cividis",  # Default color scale
+                        value="Viridis",  # Default color scale
                         clearable=False,
                         style=dict(width="100%", color="black"),
                     ),
@@ -100,7 +127,7 @@ def create_layout(
                                     {'label': '100m', 'value': '100m'},
                                     {'label': '1000m', 'value': '1000m'},
                                 ],
-                                value='1000m',
+                                value='50m',
                                 labelStyle={'display': 'inline-block'},
                             ),
                         ]
@@ -109,6 +136,8 @@ def create_layout(
                     
                     # Metric display for sum of population
                     html.Div(id="metric-output", style={"margin-top": "20px", "font-size": "20px"}),
+                    html.Hr(),
+                    html.P('ajotuer stadia maps'),
                 ]
             ),
             # Right column with graphs
@@ -148,7 +177,9 @@ def create_map(
     gdf: gpd.GeoDataFrame,
     min_colorscale: int = 0,
     max_colorscale: int = 100000,
-    colorscale_palette: str = "Cividis"  # New parameter for color scale
+    colorscale_palette: str = "Viridis",
+    marker_opacity: float = 0.5,
+    mapbox_style: str = "carto-darkmatter",
 ) -> go.Figure:
     fig_map = go.Figure()
 
@@ -160,7 +191,7 @@ def create_map(
             colorscale=colorscale_palette,  # Use the selected color scale
             zmin=min_colorscale,
             zmax=max_colorscale,
-            marker_opacity=0.5,
+            marker_opacity=marker_opacity,
             marker_line_width=0,
             showlegend=False,
             text=gdf['nom'],
@@ -185,7 +216,8 @@ def create_map(
 
     # Set up the map layout
     fig_map.update_layout(
-        mapbox_style="carto-darkmatter",
+        mapbox_style=mapbox_style,
+        mapbox_accesstoken=mapbox_access_token,
         mapbox_zoom=7,
         mapbox_center={"lat": 50.62925, "lon": 3.057256},
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
@@ -197,9 +229,7 @@ def create_map(
     
     return fig_map
 
-gdf = load_data(
-    precison='1000m'
-)
+gdf = load_data(precison='50m')
    
 filtered_gdf = gdf[gdf['departement'].isin(['32'])]
 
@@ -223,6 +253,8 @@ app.layout = create_layout(
         Input('colorscale-max-slider', 'value'),
         Input('colorscale-palette-dropdown', 'value'),
         Input('geojson-precision-radio', 'value'),
+        Input('slider-marker-opacity', 'value'),
+        Input('mapbox-style-radio', 'value'),
         
     ],
     [
@@ -237,25 +269,23 @@ def update(
     max_colorscale: int,
     colorscale_palette: str,
     geojson_precision: str,
+    marker_opacity: float,
+    mapbox_style: str,
     # States
     current_figure: Dict[str, Any],
 ) -> Tuple[go.Figure, str]:
     
     # ================ #
     global gdf
+    print('---------------------------------')
     print(f'ctx.triggered: {ctx.triggered}')
+    print(f'mapbox_style: {mapbox_style}')
     # ================ #
     
-    # Case button geojson-precision-radio.value is triggered
-    if ctx.triggered:
-        if ctx.triggered[0]['prop_id'] == 'geojson-precision-radio.value':
-            geojson_precision = ctx.triggered[0]['value']
-            print(f'geojson_precision: {geojson_precision}')
-            gdf = load_data(
-                precison=geojson_precision,
-            )
-            print(f'gdf: {len(gdf)} rows')
-    
+    if geojson_precision:
+        gdf = load_data(
+            precison=geojson_precision,
+        )
     
     # Extract the current zoom and center from the figure
     zoom = current_figure['layout']['mapbox']['zoom'] if 'mapbox' in current_figure['layout'] else 7
@@ -276,7 +306,9 @@ def update(
         gdf=filtered_gdf, 
         # min_colorscale=min_colorscale, 
         max_colorscale=max_colorscale,
-        colorscale_palette=colorscale_palette
+        colorscale_palette=colorscale_palette,
+        mapbox_style=mapbox_style,
+        marker_opacity=marker_opacity,
     )  
     # Set the zoom and center back to the figure
     fig_map.update_layout(mapbox_zoom=zoom, mapbox_center=center)
