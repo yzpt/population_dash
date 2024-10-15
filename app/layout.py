@@ -15,6 +15,7 @@ def create_layout(
                 children=[
                     # Dropdown filter for departements
                     html.Div(id='infos-box', children=[]),
+                    html.P('bug quand windows on puis off puis zoom or box select'),
                     dcc.Checklist(
                         id='windows-filtering-mode',
                         options=[
@@ -23,6 +24,16 @@ def create_layout(
                         value=[],
                         labelStyle={'display': 'inline-block'},
                     ),
+                    dcc.Checklist(
+                        id='hover-click-mode',
+                        options=[
+                            {'label': 'Hover-click mode', 'value': 'hover-click-mode'},
+                        ],
+                        value=['hover-click-mode'],
+                        labelStyle={'display': 'inline-block'},
+                    ),
+                    html.Button('Select All', id='select-all-button', n_clicks=0),
+                    html.P(' '),
                     html.Label("Départements:"),
                     dcc.Dropdown(
                         id="departement-dropdown",
@@ -94,7 +105,7 @@ def create_layout(
                         ],
                         value="Viridis",  # Default color scale
                         clearable=False,
-                        style=dict(width="100%", color="black"),
+                        style=dict(width="100%", color="black", visibility="hidden"),
                     ),
                     # dcc buttons form for shapegile precision
                     html.Div(
@@ -117,14 +128,7 @@ def create_layout(
                         ]
                     ),
                     
-                    html.Button('Select All', id='select-all-button', n_clicks=0),
-                    
-                    # Metric display for sum of population
                     html.Div(id="metric-output", style={"margin-top": "20px", "font-size": "20px"}),
-                    html.Hr(),
-                    html.P('ajotuer stadia maps'),
-                    html.P('freeze mode on smartphone distinction hover/click'),
-                    
                     html.P(' '),
                     dcc.Graph(
                         id='historic-population-graph',
