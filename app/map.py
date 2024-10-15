@@ -3,22 +3,28 @@ import plotly.graph_objects as go
 
 def create_map(
     gdf: gpd.GeoDataFrame,
+    min_colorscale: int = 0,
+    max_colorscale: int = 100000,
+    colorscale_palette: str = "Viridis",
+    marker_opacity: float = 0.5,
+    mapbox_style: str = "carto-darkmatter",
+    mapbox_access_token: str = None,
 ) -> go.Figure:
     fig_map = go.Figure()
 
     fig_map.add_trace(
         go.Choroplethmapbox(
             geojson=gdf.__geo_interface__,
-            locations=gdf.index,         # The feature's array of locations
-            z=gdf['pop'],       # The values you want to display in the choropleth
-            colorscale="Viridis",        # Choose your color scale
-            # ajdust color range
-            zmin=0,
-            zmax=100000,
-            marker_opacity=0.5,
+            locations=gdf.index,
+            z=gdf['pop'],
+            colorscale=colorscale_palette,  # Use the selected color scale
+            zmin=min_colorscale,
+            zmax=max_colorscale,
+            marker_opacity=marker_opacity,
             marker_line_width=0,
             showlegend=False,
             text=gdf['nom'],
+            customdata=gdf['codgeo'],
             hoverinfo='text+z',
             showscale=True,
             colorbar=dict(
@@ -27,11 +33,11 @@ def create_map(
                 bordercolor='rgba(0,0,0,0)',
                 tickfont=dict(color='white'),
                 titlefont=dict(color='white'),
-                x=0,
+                x=1,
                 y=1,
-                xpad=20,
-                # ypad=0,
-                xanchor='left',
+                xpad=0,
+                ypad=30,
+                xanchor='right',
                 yanchor='top',
                 len=0.5,
             ),
@@ -40,11 +46,11 @@ def create_map(
 
     # Set up the map layout
     fig_map.update_layout(
-        mapbox_style="carto-darkmatter",
+        mapbox_style=mapbox_style,
+        mapbox_accesstoken=mapbox_access_token,
         mapbox_zoom=7,
-        # center to Lille
         mapbox_center={"lat": 50.62925, "lon": 3.057256},
-        margin={"r":0,"t":0,"l":0,"b":0},
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
         font=dict(color='white'),
