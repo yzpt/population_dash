@@ -171,6 +171,8 @@ def update_historic_population_graph(
     global filtered_gdf
     global df_historic_population
     
+    print(f'---')
+    
     print(f'--windows_filtering_mode: {windows_filtering_mode}')
     if windows_filtering_mode:
         codgeo_list = filtered_gdf['codgeo'].tolist()
@@ -179,6 +181,20 @@ def update_historic_population_graph(
                     df_historic_population=df_historic_population,
                     codgeo_list=codgeo_list
                 )]
+    
+    if selected_data:
+        print('---selected_data')
+        codgeo_list = pd.DataFrame(selected_data["points"])["customdata"].to_list()
+        print(f'codgeo_list: {codgeo_list}')
+        # update trace map, lower opacity of unselected points
+        filtered_gdf['opacity'] = 0.1
+        filtered_gdf.loc[filtered_gdf['codgeo'].isin(codgeo_list), 'opacity'] = 0.5
+
+        return [plot_historic_population(
+                    df_historic_population=df_historic_population,
+                    codgeo_list=codgeo_list
+                )]
+    
     
     
     # print('--------map-graph-data')
