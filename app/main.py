@@ -14,19 +14,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from map import create_map
-from layout import create_layout
+# from layout import create_layout
 from scatter_population import plot_historic_population
 from load_data import load_data
 
 mapbox_access_token = os.getenv('MAPBOX_ACCESS_TOKEN')
 gdf = load_data(precison='100m')
-selected_codgeo = ['59','62']
-filtered_gdf = gdf[gdf['departement'].isin(selected_codgeo)]
+selected_departements = ['59','62']
+filtered_gdf = gdf[gdf['departement'].isin(selected_departements)]
 df_historic_population = pd.read_csv('pop_historique_extended.csv', dtype={0: str, 2: str})
 
 def create_layout(
     gdf: gpd.GeoDataFrame,
     fig_map: go.Figure,
+    fig_timeline: go.Figure,
 ) -> html.Div:
     return dbc.Container(
         [
@@ -85,10 +86,10 @@ def create_layout(
                             dcc.Slider(
                                 id='max-colorscale-slider',
                                 min=0,
-                                max=100000,
+                                max=50000,
                                 step=1000,
-                                value=40000,
-                                marks={i: str(i) for i in range(0, 100001, 10000)},
+                                value=25000,
+                                marks={i: str(i) for i in range(0, 50001, 10000)},
                                 className="m-3",
                             ),
                         ],
@@ -105,13 +106,28 @@ def create_layout(
                                 figure=fig_map, 
                                 id='map-graph', 
                                 config={'scrollZoom': True},
-                                style={'height': '100%'},
+                                style={
+                                    'flex': '3',
+                                    'width': '100%'
+                                },
                             ),
+                            dcc.Graph(
+                                id='timeline-graph',
+                                figure=fig_timeline,
+                                style={
+                                    'flex': '1',
+                                    'width': '100%'
+                                },
+                            )
                         ],
                         xs=12, sm=12, md=6, lg=6, xl=6,
                         style={
                             # "border": "1px solid gray", 
                             "padding": "0px",
+                            # "width": "100%",
+                            "display": "flex",
+                            "flex-direction": "column",
+                            "align-items": "flex-start",
                         },
                     ),
                 ],
@@ -124,7 +140,7 @@ def create_layout(
 def create_map(
     gdf: gpd.GeoDataFrame,
     min_colorscale: int = 0,
-    max_colorscale: int = 100000,
+    max_colorscale: int = 25000,
     colorscale_palette: str = "Viridis",
     marker_opacity: float = 0.5,
     mapbox_style: str = "carto-darkmatter",
@@ -149,16 +165,18 @@ def create_map(
             showscale=True,
             colorbar=dict(
                 title='Population',
-                bgcolor='rgba(0,0,0,0)',
+                bgcolor='white',
+                # bordercolor='white',
+                # bgcolor='rgba(0,0,0,0)',
                 bordercolor='rgba(0,0,0,0)',
                 tickfont=dict(color='black'),
                 titlefont=dict(color='black'),
                 x=1,
-                y=1,
-                xpad=0,
-                ypad=30,
+                y=0,
+                xpad=10,
+                ypad=10,
                 xanchor='right',
-                yanchor='top',
+                yanchor='bottom',
                 len=0.5,
             ),
         )
@@ -191,12 +209,17 @@ app.layout = create_layout(
         gdf=filtered_gdf,
         mapbox_access_token=mapbox_access_token,
         mapbox_style='open-street-map',
+    ),
+    fig_timeline=plot_historic_population(
+        df_historic_population=df_historic_population,
+        departements_list=selected_departements
     )
 )
 
 @app.callback(
     [
         Output('map-graph', 'figure'),
+        Output('timeline-graph', 'figure')
     ],
     [
         Input('departement-dropdown', 'value'),
@@ -205,7 +228,8 @@ app.layout = create_layout(
         Input('max-colorscale-slider', 'value'),
     ],
     [
-        State('map-graph', 'figure')
+        State('map-graph', 'figure'),
+        State('timeline-graph', 'figure')
     ]
 )
 def update_map(
@@ -217,6 +241,7 @@ def update_map(
     
     # States
     fig_map: go.Figure,
+    fig_timeline: go.Figure,
     
 ) -> Tuple[go.Figure]:
     print(f'ctx.triggered_id: {ctx.triggered_id}')
@@ -241,7 +266,7 @@ def update_map(
     # Update geojson precision
     if ctx.triggered_id == 'geojson-precision':
         gdf = load_data(precison=geojson_precision)
-        filtered_gdf = gdf[gdf['departement'].isin(selected_codgeo)]
+        filtered_gdf = gdf[gdf['departement'].isin(selected_departements)]
         fig_map = go.Figure(fig_map)
         fig_map.update_traces(
             geojson=filtered_gdf.__geo_interface__,
@@ -259,7 +284,10 @@ def update_map(
         )
 
     # Default return
-    return [fig_map]
+    return [
+        fig_map,
+        fig_timeline
+        ]
 
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0', port=8050)

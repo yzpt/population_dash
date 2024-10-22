@@ -6,18 +6,24 @@ def plot_historic_population(
     df_historic_population: pd.DataFrame,
     codgeo_list: List[str] = None,
     codgeo: str = None,
+    departements_list: List[str] = None,
 ) -> go.Figure:
     
     if (not codgeo_list and not codgeo
-        or codgeo_list and codgeo):
-        raise ValueError('You must provide either `codgeo_list` or `codgeo`, but not both.')
+        or codgeo_list and codgeo) and not departements_list:
+        raise ValueError('You must provide `codgeo_list` or `codgeo` or `departements_list`')
     
     # check if codgeo is list or not
     if isinstance(codgeo, str):
         codgeo_list = [codgeo]
     
     # Filter and transpose the DataFrame
-    df = df_historic_population[df_historic_population['codgeo'].isin(codgeo_list)].T[4:]
+    if departements_list:
+        df = df_historic_population[df_historic_population['departement'].isin(departements_list)]
+        print(f'df.head(): {df.head()}')
+    else:
+        df = df_historic_population[df_historic_population['codgeo'].isin(codgeo_list)]
+    df = df.T[4:]
     df['population'] = df.sum(axis=1)
     df.reset_index(inplace=True)
     df.rename(columns={'index':'year'}, inplace=True)
@@ -53,9 +59,9 @@ def plot_historic_population(
         ),
         yaxis_title='Population',
         xaxis=dict(type='date'),
-        template='plotly_dark',
-        margin={"r":10,"t":30,"l":10,"b":10},
-        height=200
+        template='plotly_white',
+        margin={"r":0,"t":0,"l":0,"b":0},
+        # height=200
     )
 
     return fig
