@@ -15,25 +15,18 @@ def create_layout(
                 children=[
                     # Dropdown filter for departements
                     html.Div(id='infos-box', children=[]),
-                    html.P('bug quand windows on puis off puis zoom or box select'),
-                    dcc.Checklist(
-                        id='windows-filtering-mode',
+                    dcc.RadioItems(
+                        id='filtering-mode',
                         options=[
                             {'label': 'Windows-filtering mode', 'value': 'windows-filtering-mode'},
+                            {'label': 'BUG: Box-select mode', 'value': 'box-select-mode'},
+                            # {'label': 'Lasso-select mode', 'value': 'lasso-select-mode'},
+                            {'label': 'Hover-click-mode', 'value': 'hover-click-mode'},
                         ],
-                        value=[],
-                        labelStyle={'display': 'inline-block'},
+                        value='hover-click-mode',
+                        style={"flex-direction": "row"},
                     ),
-                    dcc.Checklist(
-                        id='hover-click-mode',
-                        options=[
-                            {'label': 'Hover-click mode', 'value': 'hover-click-mode'},
-                        ],
-                        value=['hover-click-mode'],
-                        labelStyle={'display': 'inline-block'},
-                    ),
-                    html.Button('Select All', id='select-all-button', n_clicks=0),
-                    html.P(' '),
+                    html.Button('Select All', id='select-all-button', n_clicks=0, style={"visibility": "hidden"}),
                     html.Label("Départements:"),
                     dcc.Dropdown(
                         id="departement-dropdown",
@@ -48,28 +41,44 @@ def create_layout(
                             color="black",
                         ),
                     ),
+                    
+                    html.Div(
+                        style={"display": "flex", "flex-direction": "row", 'width': '100%', 'justify-content': 'space-between'},
+                        children=[
+                            html.Div(
+                                style={"display": "flex", "flex-direction": "column", 'flex': '1'},
+                                children=[
+                                    html.Label("Max Colorscale Value:", style={"margin": "auto"}),
+                                    # slider for max colorscale value
+                                    dcc.Slider(
+                                        id='colorscale-max-slider',
+                                        min=0,
+                                        max=100000,  # Set based on your data range
+                                        step=1000,
+                                        value=30000,  # Default max value
+                                        marks=None,
+                                        tooltip={"placement": "bottom", "always_visible": True},
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                style={"display": "flex", "flex-direction": "column", 'flex': '1'},
+                                children=[
+                                    html.Label("Opacity:"),
+                                    dcc.Slider(
+                                        id='slider-marker-opacity',
+                                        min=0,
+                                        max=1,
+                                        step=0.1,
+                                        value=0.5,
+                                        marks={i: str(i) for i in [0, 0.5, 1]},
+                                        tooltip={"placement": "bottom", "always_visible": True},
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
                     # Slider for max colorscale value
-                    html.Label("Max Colorscale Value:"),
-                    # slider for max colorscale value
-                    dcc.Slider(
-                        id='colorscale-max-slider',
-                        min=0,
-                        max=100000,  # Set based on your data range
-                        step=1000,
-                        value=30000,  # Default max value
-                        marks={i: str(i) for i in range(0, 100001, 10000)},
-                        tooltip={"placement": "bottom", "always_visible": True},
-                    ),
-                    html.Label("Opacity:"),
-                    dcc.Slider(
-                        id='slider-marker-opacity',
-                        min=0,
-                        max=1,
-                        step=0.1,
-                        value=0.5,
-                        marks={i: str(i) for i in [0, 0.5, 1]},
-                        tooltip={"placement": "bottom", "always_visible": True},
-                    ),
                     # radios for mapbox_style
                     # "open-street-map", "carto-positron", and "carto-darkmatter" yield maps composed of raster tiles from various public tile servers which do not require signups or access tokens.
                     # "basic", "streets", "outdoors", "light", "dark", "satellite", or "satellite-streets" yield maps composed of vector tiles from the Mapbox service, and do require a Mapbox Access Token or an on-premise Mapbox installation.
