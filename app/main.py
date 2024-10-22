@@ -226,6 +226,7 @@ app.layout = create_layout(
         Input('carto-selection', 'value'),
         Input('geojson-precision', 'value'),
         Input('max-colorscale-slider', 'value'),
+        Input('map-graph', 'hoverData'),
     ],
     [
         State('map-graph', 'figure'),
@@ -238,6 +239,7 @@ def update_map(
     carto_selection: str,
     geojson_precision: str,
     max_colorscale: int,
+    map_hover_data: Dict[str, Any],
     
     # States
     fig_map: go.Figure,
@@ -245,6 +247,7 @@ def update_map(
     
 ) -> Tuple[go.Figure]:
     print(f'ctx.triggered_id: {ctx.triggered_id}')
+    print(f'map_hover_data: {map_hover_data}')
     
     # Update selected departments
     if ctx.triggered_id == 'departement-dropdown':
@@ -282,11 +285,21 @@ def update_map(
         fig_map.update_traces(
             zmax=max_colorscale,
         )
-
+        
+    # City hover
+    if ctx.triggered_id == 'map-graph' and map_hover_data is not None:
+            print(f'---city hover triggered---')
+            global df_historic_population
+            hovered_codgeo = map_hover_data['points'][0]['customdata']
+            fig_timeline = plot_historic_population(
+                df_historic_population=df_historic_population,
+                codgeo=hovered_codgeo
+            )
+            
     # Default return
     return [
         fig_map,
-        fig_timeline
+        fig_timeline,
         ]
 
 if __name__ == '__main__':
