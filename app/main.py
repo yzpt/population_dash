@@ -247,7 +247,7 @@ def update_map(
     
 ) -> Tuple[go.Figure]:
     print(f'ctx.triggered_id: {ctx.triggered_id}')
-    print(f'map_hover_data: {map_hover_data}')
+    # print(f'map_hover_data: {map_hover_data}')
     
     # Update selected departments
     if ctx.triggered_id == 'departement-dropdown':
@@ -291,9 +291,19 @@ def update_map(
             print(f'---city hover triggered---')
             global df_historic_population
             hovered_codgeo = map_hover_data['points'][0]['customdata']
-            fig_timeline = plot_historic_population(
-                df_historic_population=df_historic_population,
-                codgeo=hovered_codgeo
+            # transform historic population data
+            df = df_historic_population[df_historic_population['codgeo'] == hovered_codgeo]
+            df = df.T[4:]
+            df['population'] = df.sum(axis=1)
+            df.reset_index(inplace=True)
+            df.rename(columns={'index':'year'}, inplace=True)
+            df = df[['year','population']].reset_index(drop=True)
+            df['year'] = pd.to_datetime(df['year'], format='%Y')
+            
+            fig_timeline = go.Figure(fig_timeline)
+            fig_timeline.update_traces(
+                x=df['year'],
+                y=df['population'],
             )
             
     # Default return
@@ -303,5 +313,5 @@ def update_map(
         ]
 
 if __name__ == '__main__':
-    app.run_server(debug=True, host='0.0.0.0', port=8050)
+    app.run_server(debug=False, host='0.0.0.0', port=8050)
     
