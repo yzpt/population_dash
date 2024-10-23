@@ -50,8 +50,10 @@ def create_map(
     fig_map.update_layout(
         mapbox_style=mapbox_style,
         mapbox_accesstoken=mapbox_access_token,
-        mapbox_zoom=7,
-        mapbox_center={"lat": 50.62925, "lon": 3.057256},
+        # mapbox_zoom=7,
+        # mapbox_center={"lat": 50.62925, "lon": 3.057256},
+        mapbox_zoom=4.5,
+        mapbox_center={"lat": 46.95332, "lon": 3.05951},
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
