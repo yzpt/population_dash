@@ -37,16 +37,6 @@ def create_layout(
                 [
                     dbc.Col(
                         [
-                            # dcc.Dropdown(
-                            #     id="departement-dropdown",
-                            #     options=[{"label": departement, "value": departement} for departement in gdf["code_dep"].unique()],
-                            #     value=['59', '62'],
-                            #     placeholder="Select Departments",
-                            #     clearable=True,
-                            #     multi=True,
-                            #     style=dict(color="black"),
-                            #     className="m-3",
-                            # ),
                             html.Div(
                                 [
                                     dbc.RadioItems(
@@ -62,7 +52,15 @@ def create_layout(
                                         ],
                                         value='open-street-map',
                                     ),
-                                    dbc.RadioItems(
+                                ],
+                                className="radio-group m-2",
+                                style={
+                                    'display': 'flex',
+                                    'justify-content': 'space-evenly',
+                                    },
+                            ),
+                            html.Div(
+                                dbc.RadioItems(
                                         id="geojson-precision",
                                         className="btn-group",
                                         inputClassName="btn-check",
@@ -76,8 +74,7 @@ def create_layout(
                                         ],
                                         value='1000m',
                                     ),
-                                ],
-                                className="radio-group",
+                                className="radio-group m-2",
                                 style={
                                     'display': 'flex',
                                     'justify-content': 'space-evenly',
@@ -90,6 +87,18 @@ def create_layout(
                                 step=1e5,
                                 value=2e6,
                                 marks={i: str(i) for i in range(0, int(3e6), int(5e5))},
+                                className="m-3",
+                            ),
+                            dcc.Graph(
+                                id='bars-graph',
+                                figure=go.Figure(),
+                            ),
+                            dcc.Slider(
+                                id='max-population-range-slider',
+                                min=0,
+                                max=4e5,
+                                value=4e5,
+                                marks={i: str(i) for i in range(0, int(4e5), int(1e5))},
                                 className="m-3",
                             ),
                         ],
@@ -222,7 +231,8 @@ app.layout = create_layout(
 @app.callback(
     [
         Output('map-graph', 'figure'),
-        Output('timeline-graph', 'figure')
+        Output('timeline-graph', 'figure'),
+        Output('bars-graph', 'figure'),
     ],
     [
         # Input('departement-dropdown', 'value'),
@@ -231,10 +241,12 @@ app.layout = create_layout(
         Input('max-colorscale-slider', 'value'),
         Input('map-graph', 'hoverData'),
         Input('map-graph', 'relayoutData'),
+        Input('max-population-range-slider', 'value'),
     ],
     [
         State('map-graph', 'figure'),
-        State('timeline-graph', 'figure')
+        State('timeline-graph', 'figure'),
+        State('bars-graph', 'figure'),
     ]
 )
 def update_map(
@@ -245,31 +257,21 @@ def update_map(
     max_colorscale: int,
     map_hover_data: Dict[str, Any],
     map_relayout_data: Dict[str, Any],
+    max_population_range: int,
     
     # States
     fig_map: go.Figure,
     fig_timeline: go.Figure,
+    fig_pyramid: go.Figure,
     
-) -> Tuple[go.Figure]:
+) -> Tuple[go.Figure, go.Figure, go.Figure]:
     print(f'ctx.triggered_id: {ctx.triggered_id}')
     print(f'map_relayout_data: {map_relayout_data}')
     print(f'map_hover_data: {map_hover_data}')
     global gdf
     print(f'gdf: {gdf.columns}')
     
-    # Update selected departments
-    # if ctx.triggered_id == 'departement-dropdown':
-    #     global gdf
-    #     filtered_gdf = gdf[gdf['departement'].isin(departement_dropdown)]
-    #     fig_map = go.Figure(fig_map)
-    #     fig_map.update_traces(
-    #         geojson=filtered_gdf.__geo_interface__,
-    #         locations=filtered_gdf.index,
-    #         z=filtered_gdf['pop'],
-    #         text=filtered_gdf['nom'],
-    #         customdata=filtered_gdf['codgeo'],
-        # )
-    
+        
     # Update map style
     if ctx.triggered_id == 'carto-selection':
         fig_map = go.Figure(fig_map).update_layout(mapbox_style=carto_selection)
@@ -319,23 +321,78 @@ def update_map(
         print('---- hover departement ----')
         code_dep = map_hover_data['points'][0]['customdata']
         df = gdf.drop(columns=['geometry']).loc[gdf['code_dep'] == code_dep]
-        print(f'df: {df.columns}')
-        # bar chart
-        fig_charts = go.Figure()
-
-        for col in df.columns[5:]:
-            fig_charts.add_trace(go.Bar(x=df['nom_dep'], y=df[col], name=col))
-            fig_charts.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=200)
-        return [
-            fig_map,
-            fig_charts,
-        ]  
+        df = df.T[5:].reset_index()
+        df.columns = ['categorie', 'population']
+        df = df[6:]
+        df.reset_index(drop=True, inplace=True)
+        pyramid_df = pd.DataFrame(columns=['tranche_age', 'population_femmes', 'population_hommes'])
+        pyramid_df['tranche_age'] = ['0-19', '20-39', '40-59', '60-74', '75+']
+        pyramid_df['population_hommes'] = df['population'][:5].values.astype(int)
+        pyramid_df['population_femmes'] = df['population'][6:-1].values.astype(int)
+        
+        fig_pyramid = go.Figure()
+        fig_pyramid.add_trace(
+            go.Bar(
+                x=pyramid_df['population_hommes'],
+                y=pyramid_df['tranche_age'],
+                name='Hommes',
+                orientation='h',
+                hoverinfo='none',
+            )
+        )
+        fig_pyramid.add_trace(
+            go.Bar(
+                x=pyramid_df['population_femmes'] * -1,
+                y=pyramid_df['tranche_age'],
+                name='Femmes',
+                orientation='h',
+                hoverinfo='none',
+            )
+        )
+        fig_pyramid.update_layout(
+            title='Population par tranche d\'âge et par sexe',
+            barmode='overlay',
+            xaxis_title='Population',
+            yaxis_title='Age',
+            showlegend=True,
+            legend=dict(
+                orientation='h',
+                yanchor='bottom',
+                y=1.02,
+                xanchor='right',
+                x=1,
+            ),
+            xaxis=dict(
+                range=[-max_population_range, max_population_range],
+            ),
+            template='plotly_white',
+            height=300,
+            
+        )
+        # return [
+        #     fig_map,
+        #     fig_timeline,
+        #     fig_pyramid,
+        # ]  
+        
+    
+    if ctx.triggered_id == 'max-population-range-slider':
+        fig_pyramid = go.Figure(fig_pyramid)
+        fig_pyramid.update_layout(
+            xaxis=dict(
+                range=[-max_population_range, max_population_range],
+            ),
+        )
+        
+        
+        
         
             
     # Default return
     return [
         fig_map,
         fig_timeline,
+        fig_pyramid,
         ]
 
 if __name__ == '__main__':
